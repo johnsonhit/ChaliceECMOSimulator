@@ -29,10 +29,5 @@ namespace ChaliceECMOSimulator
             this.InitializeComponent();
             this.ViewModel = new SingleParametersViewModel();
         }       
-
-        private void ButStart_Click(object sender, RoutedEventArgs e)
-        {
-
-        }
     }
 }

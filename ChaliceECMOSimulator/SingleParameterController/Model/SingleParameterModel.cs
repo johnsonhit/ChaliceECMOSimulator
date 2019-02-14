@@ -41,15 +41,18 @@ namespace ChaliceECMOSimulator
         {
             if (timeAt <= 0)
             {
-                timeAt = 0;
-                ControllerState = 1;
-                CurrentValue += deltaValue;
-                if (Math.Abs(CurrentValue - TargetValue) < Math.Abs(deltaValue))
+                if (deltaValue != 0)
                 {
-                    ControllerState = 0;
-                    timeIn = 0;
-                    deltaValue = 0;
-                    CurrentValue = TargetValue;
+                    timeAt = 0;
+                    ControllerState = 1;
+                    CurrentValue += deltaValue;
+                    if (Math.Abs(CurrentValue - TargetValue) < Math.Abs(deltaValue))
+                    {
+                        ControllerState = 0;
+                        timeIn = 0;
+                        deltaValue = 0;
+                        CurrentValue = TargetValue;
+                    }
                 }
             } else
             {

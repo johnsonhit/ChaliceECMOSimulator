@@ -126,11 +126,11 @@
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Model\SingleParameterModel.cs" />
-    <Compile Include="SingleParameterController.xaml.cs">
+    <Compile Include="SingleParameterController\Model\SingleParameterModel.cs" />
+    <Compile Include="SingleParameterController\View\SingleParameterController.xaml.cs">
       <DependentUpon>SingleParameterController.xaml</DependentUpon>
     </Compile>
-    <Compile Include="ViewModel\SingleParametersViewModel.cs" />
+    <Compile Include="SingleParameterController\ViewModel\SingleParametersViewModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
@@ -161,7 +161,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="SingleParameterController.xaml">
+    <Page Include="SingleParameterController\View\SingleParameterController.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -171,6 +171,7 @@
       <Version>6.2.3</Version>
     </PackageReference>
   </ItemGroup>
+  <ItemGroup />
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>
   </PropertyGroup>
