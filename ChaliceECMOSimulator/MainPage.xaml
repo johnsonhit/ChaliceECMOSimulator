@@ -19,7 +19,7 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="2*"/>
         </Grid.RowDefinitions>
-        
+
         <local:SingleParameterController Grid.Column="1" Grid.Row="2"></local:SingleParameterController>
     </Grid>
 </Page>
