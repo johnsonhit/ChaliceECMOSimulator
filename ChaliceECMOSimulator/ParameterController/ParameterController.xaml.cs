@@ -888,9 +888,11 @@ namespace ChaliceECMOSimulator
             {
                 expandedState = 1;
                 ControlHeight = 352;
+                pgbSmall.Visibility = Visibility.Collapsed;
             } else
             {
                 expandedState = 0;
+                pgbSmall.Visibility = Visibility.Visible;
                 ControlHeight = 72;
             }
         }

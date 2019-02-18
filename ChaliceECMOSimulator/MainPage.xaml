@@ -20,6 +20,18 @@
             <RowDefinition Height="2*"/>
         </Grid.RowDefinitions>
 
-        <local:ParameterController Grid.Column="1" Grid.Row="2"></local:ParameterController>
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Bottom" Orientation="Horizontal" Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="2">
+            <local:ParameterController Margin="5,0,0,0" ></local:ParameterController>
+            <local:ParameterController Margin="5,0,0,0" ></local:ParameterController>
+            <local:ParameterController Margin="5,0,0,0" ></local:ParameterController>
+            <local:ParameterController Margin="5,0,0,0" ></local:ParameterController>
+            <local:ParameterController Margin="5,0,0,0" ></local:ParameterController>
+            <local:ParameterController Margin="5,0,0,0" ></local:ParameterController>
+            <local:ParameterController Margin="5,0,0,0" ></local:ParameterController>
+            <local:ParameterController Margin="5,0,0,0" ></local:ParameterController>
+            <local:ParameterController Margin="5,0,0,0" ></local:ParameterController>
+            <local:ParameterController Margin="5,0,0,0" ></local:ParameterController>
+        </StackPanel>
+        
     </Grid>
 </Page>
