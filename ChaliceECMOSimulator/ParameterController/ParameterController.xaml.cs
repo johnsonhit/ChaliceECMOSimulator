@@ -20,7 +20,7 @@ using Windows.UI.Xaml.Navigation;
 
 namespace ChaliceECMOSimulator
 {
-    public sealed partial class SingleParameterController : UserControl, INotifyPropertyChanged
+    public sealed partial class ParameterController : UserControl, INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged = delegate { };
         public void OnPropertyChanged([CallerMemberName] string propertyName = null)
@@ -314,7 +314,7 @@ namespace ChaliceECMOSimulator
         private readonly Windows.UI.Xaml.DispatcherTimer updateTimer = new Windows.UI.Xaml.DispatcherTimer();
         private readonly Windows.UI.Xaml.DispatcherTimer fluctTimer = new Windows.UI.Xaml.DispatcherTimer();
 
-        public SingleParameterController()
+        public ParameterController()
         {
             this.InitializeComponent();
 

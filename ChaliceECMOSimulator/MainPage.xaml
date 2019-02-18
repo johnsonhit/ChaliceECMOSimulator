@@ -20,6 +20,6 @@
             <RowDefinition Height="2*"/>
         </Grid.RowDefinitions>
 
-        <local:SingleParameterController Grid.Column="1" Grid.Row="2"></local:SingleParameterController>
+        <local:ParameterController Grid.Column="1" Grid.Row="2"></local:ParameterController>
     </Grid>
 </Page>
