@@ -16,6 +16,8 @@ using SkiaSharp;
 using SkiaSharp.Views.UWP;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Threading;
+
 
 // The User Control item template is documented at https://go.microsoft.com/fwlink/?LinkId=234236
 
@@ -23,13 +25,16 @@ namespace ChaliceECMOSimulator.ParameterGraph
 {
     public sealed partial class ParameterGraph : UserControl, INotifyPropertyChanged
     {
-        public event PropertyChangedEventHandler PropertyChanged = delegate { };
+        string _title = "graph";
+        public string Title { get {return _title; } set { _title = value; OnPropertyChanged(); } }
+        
+        
+            public event PropertyChangedEventHandler PropertyChanged = delegate { };
         public void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        public float displayScaling = 2.25f;
 
         float _graphXOffset = 50;
         public float GraphXOffset { get { return _graphXOffset; } set { _graphXOffset = value; OnPropertyChanged(); } }
@@ -46,12 +51,8 @@ namespace ChaliceECMOSimulator.ParameterGraph
         float _graphMaxX = 100;
         public float GraphMaxX { get { return _graphMaxX; } set { _graphMaxX = value; OnPropertyChanged(); } }
 
-        float _graphMinX = 100;
+        float _graphMinX = 0;
         public float GraphMinX { get { return _graphMinX; } set { _graphMinX = value; OnPropertyChanged(); } }
-
-        public int Stepsize { get; set; } = 4;
-        public bool IsSideScrolling { get; set; } = true;
-        public int ScrollDirection { get; set; } = -1;
 
         public bool Graph1Enabled { get; set; } = true;
         SKPoint point1;
@@ -95,30 +96,38 @@ namespace ChaliceECMOSimulator.ParameterGraph
         public SKPaint GridTitlePaint;
         public SKPaint LegendTextPaint;
 
-        public float GridYAxisStep { get; set; } = 20;
-        public float GridXAxisStep { get; set; } = 1;
+        public float GridYAxisStep { get; set; } = 10;
+        public float GridXAxisStep { get; set; } = 10;
 
-        public bool HideXAxisLabels { get; set; } = true;
+        public bool HideXAxisLabels { get; set; } = false;
         public bool HideYAxisLabels { get; set; } = false;
 
         public string XAxisTitle { get; set; } = "x - axis";
         public string YAxisTitle { get; set; } = "y - axis";
 
-        public float SourceDataResolution { get; set; } = 4f / 0.015f;  // in datapoints per second
-        public bool TimeBasedInMinutes { get; set; } = false;
-
         public string Legend1 { get; set; } = "Test";
-        public string Legend2 { get; set; } = "";
+        public string Legend2 { get; set; } = "White";
         public string Legend3 { get; set; } = "";
         public string Legend4 { get; set; } = "";
         public string Legend5 { get; set; } = "";
 
-        public int GraphicsRefreshRate { get; set; } = 60;      // in Hz
-        public int RefreshRate { get; set; } = 0;
+        public int PixelPerDataPoint { get; set; } = 2;                  // number of pixels between per datapoints
+        public bool IsSideScrolling { get; set; } = true;       
+        public int ScrollDirection { get; set; } = 1;
+
+        public int DataRefreshRate { get; set; } = 15;          // in ms so every 15 ms a datapoint is added to the arrays
+        public int GraphicsUpdateRate { get; set; } = 15;       // in ms so every 15 ms the graph is data-arrays are drawn
+        public int GraphicsClearanceRate { get; set; } = 0;     // in ms so every 0 seconds the complete canvas is rebuild, set 0 for side scrolling graphs
+        public float GraphicsFrameDuration { get; set; } = 0;     // in ms so the duration of one complete graphics frame in ms.
         int refreshCounter = 0;
 
-        private readonly Windows.UI.Xaml.DispatcherTimer updateTimer = new Windows.UI.Xaml.DispatcherTimer();
-       
+        private readonly DispatcherTimer updateTimer = new Windows.UI.Xaml.DispatcherTimer();
+
+        float h_data = 0;
+        float w_data = 0;
+
+        float h_grid = 0;
+        float w_grid = 0;
 
         public ParameterGraph()
         {
@@ -140,7 +149,7 @@ namespace ChaliceECMOSimulator.ParameterGraph
             GraphPaint2 = new SKPaint
             {
                 Style = SKPaintStyle.Stroke,
-                Color = SKColors.Red,
+                Color = SKColors.White,
                 StrokeWidth = 2,
                 StrokeCap = SKStrokeCap.Round,
                 IsAntialias = true
@@ -236,50 +245,60 @@ namespace ChaliceECMOSimulator.ParameterGraph
             };
 
             // start the graph timer
-            updateTimer.Interval = new TimeSpan(0, 0, 0, 0, 1000 / GraphicsRefreshRate);
+            updateTimer.Interval = new TimeSpan(0, 0, 0, 0, GraphicsUpdateRate);
             updateTimer.Tick += UpdateTimer_Tick;
             updateTimer.Start();
 
+            // find the size
+            h_data = (float)myGraphCanvas.CanvasSize.Height;
+            w_data = (float)myGraphCanvas.CanvasSize.Width;
+
             // draw the grid
             myGraphCanvasGrid.Invalidate();
+
         }
 
         private void UpdateTimer_Tick(object sender, object e)
         {
-            Random seed = new Random();
-            UpdateGraphData(0, 50 * seed.NextDouble() + 25);
             myGraphCanvas.Invalidate();
         }
 
         public void UpdateGraphData(double _x1, double _y1, double _x2 = 0, double _y2 = 0, double _x3 = 0, double _y3 = 0, double _x4 = 0, double _y4 = 0, double _x5 = 0, double _y5 = 0)
         {
-            float _height = (float)myGraphCanvas.CanvasSize.Height;
-            float _width = (float)myGraphCanvas.CanvasSize.Width;
-
-            // calculate the number of needed datapoints for the graph
-            int noDataPoints = (int)((_width - 2 * GraphXOffset) / Stepsize);
+            // calculate the number of needed datapoints for the graph as determined by the x - axis and the pixels between datapoints
+            int noDataPoints = (int)((w_data - 2 * GraphXOffset) / PixelPerDataPoint);
 
             // calculate the vertical scaling
-            float yScaling = (_height - 2 * GraphYOffset) / (GraphMaxY - GraphMinY);
+            float yScaling = (h_data - 2 * GraphYOffset) / (GraphMaxY - GraphMinY);
 
-            // calculate the horizintal scaling
-            float xScaling = (_width - 2 * GraphXOffset) / (GraphMaxX - GraphMinX);
+            // calculate the horizontal scaling
+            float xScaling = (w_data - 2 * GraphXOffset) / (GraphMaxX - GraphMinX);
 
             // calculate the coordinates
-            point1.Y = (float)(_height - ((_y1 - GraphMinY) * yScaling) - GraphYOffset);
+            point1.Y = (float)(h_data - ((_y1 - GraphMinY) * yScaling) - GraphYOffset);
             point1.X = (float)(GraphXOffset + ((_x1 - GraphMinX) * xScaling));
+            if (point1.X < GraphXOffset) point1.X = GraphXOffset;
+            if (point1.X > w_data - GraphXOffset) point1.X = w_data - GraphXOffset;
 
-            point2.Y = (float)(_height - ((_y2 - GraphMinY) * yScaling) - GraphYOffset);
+            point2.Y = (float)(h_data - ((_y2 - GraphMinY) * yScaling) - GraphYOffset);
             point2.X = (float)(GraphXOffset + ((_x2 - GraphMinX) * xScaling));
+            if (point2.X < GraphXOffset) point2.X = GraphXOffset;
+            if (point2.X > w_data - GraphXOffset) point2.X = w_data - GraphXOffset;
 
-            point3.Y = (float)(_height - ((_y3 - GraphMinY) * yScaling) - GraphYOffset);
+            point3.Y = (float)(h_data - ((_y3 - GraphMinY) * yScaling) - GraphYOffset);
             point3.X = (float)(GraphXOffset + ((_x3 - GraphMinX) * xScaling));
+            if (point3.X < GraphXOffset) point3.X = GraphXOffset;
+            if (point3.X > w_data - GraphXOffset) point3.X = w_data - GraphXOffset;
 
-            point4.Y = (float)(_height - ((_y4 - GraphMinY) * yScaling) - GraphYOffset);
+            point4.Y = (float)(h_data - ((_y4 - GraphMinY) * yScaling) - GraphYOffset);
             point4.X = (float)(GraphXOffset + ((_x4 - GraphMinX) * xScaling));
+            if (point4.X < GraphXOffset) point4.X = GraphXOffset;
+            if (point4.X > w_data - GraphXOffset) point4.X = w_data - GraphXOffset;
 
-            point5.Y = (float)(_height - ((_y5 - GraphMinY) * yScaling) - GraphYOffset);
+            point5.Y = (float)(h_data - ((_y5 - GraphMinY) * yScaling) - GraphYOffset);
             point5.X = (float)(GraphXOffset + ((_x5 - GraphMinX) * xScaling));
+            if (point5.X < GraphXOffset) point5.X = GraphXOffset;
+            if (point5.X > w_data - GraphXOffset) point5.X = w_data - GraphXOffset;
 
             lock (queue1)
             {
@@ -347,7 +366,7 @@ namespace ChaliceECMOSimulator.ParameterGraph
                 float x = GraphXOffset;
                 if (ScrollDirection == -1)
                 {
-                    x = _width - GraphXOffset;
+                    x = w_data - GraphXOffset;
                 }
 
                 if (displayArray5 != null)
@@ -359,7 +378,7 @@ namespace ChaliceECMOSimulator.ParameterGraph
                         displayArray3[pos].X = x;
                         displayArray4[pos].X = x;
                         displayArray5[pos].X = x;
-                        x += Stepsize * ScrollDirection;
+                        x += PixelPerDataPoint * ScrollDirection;
                     }
                 }
             }
@@ -368,17 +387,19 @@ namespace ChaliceECMOSimulator.ParameterGraph
         private void MyGraphCanvas_PaintSurface(object sender, SKPaintSurfaceEventArgs e)
         {
             var canvas = e.Surface.Canvas;
-            float h = (float) myGraphCanvas.CanvasSize.Height;
-            float w = (float)myGraphCanvas.CanvasSize.Width;
-            DrawGraph(canvas, w, h);
+            h_data = (float) myGraphCanvas.CanvasSize.Height;
+            w_data = (float)myGraphCanvas.CanvasSize.Width;
+            // graphics frame duration = Every 15 ms the data is updated and this data point takes 4 pixels.  So width / 4 = number of datapoints * 15 ms = duration of 1 frame
+            GraphicsFrameDuration = ((w_data - 2 * GraphXOffset) / PixelPerDataPoint) * DataRefreshRate;
+            DrawGraph(canvas);
         }
 
         private void MyGraphCanvasGrid_PaintSurface(object sender, SKPaintSurfaceEventArgs e)
         {
             var canvas = e.Surface.Canvas;
-            float h = (float)myGraphCanvasGrid.CanvasSize.Height;
-            float w = (float)myGraphCanvasGrid.CanvasSize.Width;
-            DrawGrid(canvas, w, h);
+            h_grid = (float)myGraphCanvasGrid.CanvasSize.Height;
+            w_grid = (float)myGraphCanvasGrid.CanvasSize.Width;
+            DrawGrid(canvas);
         }
 
         public void ClearQueues()
@@ -391,14 +412,14 @@ namespace ChaliceECMOSimulator.ParameterGraph
             queue5.Clear();
         }
 
-        public void DrawGraph(SKCanvas _canvasGraph, float _width, float _height)
+        public void DrawGraph(SKCanvas _canvasGraph)
         {
-            if (refreshCounter >= RefreshRate)
+            if (refreshCounter >= GraphicsClearanceRate)
             {
                 _canvasGraph.Clear(SKColors.Transparent);
                 refreshCounter = 0;
             }
-            refreshCounter++;
+            refreshCounter += GraphicsUpdateRate;
 
             if (Graph1Enabled && displayArray1 != null) _canvasGraph.DrawPoints(PointMode1, displayArray1, GraphPaint1);
             if (Graph2Enabled && displayArray2 != null) _canvasGraph.DrawPoints(PointMode2, displayArray2, GraphPaint2);
@@ -407,23 +428,26 @@ namespace ChaliceECMOSimulator.ParameterGraph
             if (Graph5Enabled && displayArray5 != null) _canvasGraph.DrawPoints(PointMode5, displayArray5, GraphPaint5);
         }
 
-        public void DrawGrid(SKCanvas _canvasGrid, float _width, float _height)
+        public void RedrawGrid()
         {
-    
-
+            // draw the grid
+            myGraphCanvasGrid.Invalidate();
+        }
+        public void DrawGrid(SKCanvas _canvasGrid)
+        {
             // clear the grid graph
             _canvasGrid.Clear(BackgroundColor);
 
             // draw the x - axis
-            _canvasGrid.DrawLine(GraphXOffset, _height - GraphYOffset, _width - GraphXOffset, _height - GraphYOffset, GridLineAxisPaint);
-            _canvasGrid.DrawLine(GraphXOffset, 0 + GraphYOffset, _width - GraphXOffset, 0 + GraphYOffset, GridLineAxisPaint);
+            _canvasGrid.DrawLine(GraphXOffset, h_grid - GraphYOffset, w_grid - GraphXOffset, h_grid - GraphYOffset, GridLineAxisPaint);
+            _canvasGrid.DrawLine(GraphXOffset, 0 + GraphYOffset, w_grid - GraphXOffset, 0 + GraphYOffset, GridLineAxisPaint);
 
             // draw the y - axis
-            _canvasGrid.DrawLine(GraphXOffset, _height - GraphYOffset, GraphXOffset, 0 + GraphYOffset, GridLineAxisPaint);
-            _canvasGrid.DrawLine(_width - GraphXOffset, _height - GraphYOffset, _width - GraphXOffset, 0 + GraphYOffset, GridLineAxisPaint);
+            _canvasGrid.DrawLine(GraphXOffset, h_grid - GraphYOffset, GraphXOffset, 0 + GraphYOffset, GridLineAxisPaint);
+            _canvasGrid.DrawLine(w_grid - GraphXOffset, h_grid - GraphYOffset, w_grid - GraphXOffset, 0 + GraphYOffset, GridLineAxisPaint);
 
             // draw the legend
-            float pos = _width / 6;
+            float pos = w_grid / 6;
             if (Graph1Enabled)
             {
                 _canvasGrid.DrawLine(pos, 15, pos + 15f, 15, GraphPaint1);
@@ -451,54 +475,62 @@ namespace ChaliceECMOSimulator.ParameterGraph
             }
 
             // draw the horizontal grid lines
-            float yStepSize = ((_height - 2 * GraphYOffset) / (GraphMaxY - GraphMinY)) * GridYAxisStep;
+            float yStepSize = ((h_grid - 2 * GraphYOffset) / (GraphMaxY - GraphMinY)) * GridYAxisStep;
             float yLabel = GraphMinY;
 
-            for (float yLine = GraphYOffset; yLine <= _height - GraphYOffset + 1; yLine += yStepSize)
+            for (float yLine = GraphYOffset; yLine <= h_grid - GraphYOffset + 1; yLine += yStepSize)
             {
-                _canvasGrid.DrawLine(GraphXOffset, _height - yLine, _width - GraphXOffset, _height - yLine, GridLinePaint);
-                _canvasGrid.DrawText(yLabel.ToString(), GraphXOffset - 8, _height - yLine + 5, GridAxisLabelsPaint);
+                _canvasGrid.DrawLine(GraphXOffset, h_grid - yLine, w_grid - GraphXOffset, h_grid - yLine, GridLinePaint);
+                _canvasGrid.DrawText(yLabel.ToString(), GraphXOffset - 8, h_grid - yLine + 5, GridAxisLabelsPaint);
                 yLabel += GridYAxisStep;
             }
 
             // draw the vertical grid lines
             if (IsSideScrolling)
             {
-                float xStepSize = GridXAxisStep * SourceDataResolution;
+                // as the graph is side scrolling the vertical grid lines are timed datapoints and stored in an array where every point is dependent on the datarefresh rate
+                // so a datarefresh rate of every 15 ms creates a datapoint every 15 ms.
+                // so the labels should be if a screen width of 1000 takes a dataframe of 1000 points which should by 1000 * 15 ms = 15000 ms = 15 seconds
+                // if i want a scroll line for every second than the stepsize would be 15 sec = 1000 points -> 1 sec = 1000/15 = 66,67 points and thats the stepsize
+                // so the width * datarefreshrate / 1000 = number of seconds in this frame, then 
+
+                float xStepSize = ((w_data - 2 * GraphXOffset) / (GraphicsFrameDuration / 1000));      // pixels / s
                 float xLabel = GraphMinX;
                 string xLabelText = "";
-                for (float xLine = GraphXOffset; xLine <= Width - GraphXOffset; xLine += xStepSize)
+                for (float xLine = GraphXOffset; xLine <= w_grid - GraphXOffset; xLine += xStepSize)
                 {
                     xLabelText = xLabel.ToString();
-                    if (TimeBasedInMinutes)
+                    if (true)
                     {
-                        xLabelText = Math.Round(xLabel / 60f, 0).ToString();
+                        xLabelText = Math.Round(xLabel, 0).ToString();
                     }
-                    _canvasGrid.DrawLine(xLine, _height - GraphYOffset, xLine, 0 + GraphYOffset, GridLinePaint);
+                    _canvasGrid.DrawLine(xLine, h_grid - GraphYOffset, xLine, 0 + GraphYOffset, GridLinePaint);
                     if (HideXAxisLabels == false)
                     {
-                        _canvasGrid.DrawText(xLabelText.ToString(), xLine + 8, _height - GraphYOffset + 18, GridAxisLabelsPaint);
+                        _canvasGrid.DrawText(xLabelText.ToString(), xLine + 8, h_grid - GraphYOffset + 18, GridAxisLabelsPaint);
                     }
                     else
                     {
-                        _canvasGrid.DrawText(XAxisTitle, _width / 2f, _height - GraphYOffset + 18, GridAxisLabelsPaint);
+                        _canvasGrid.DrawText(XAxisTitle, w_grid / 2f, h_grid - GraphYOffset + 18, GridAxisLabelsPaint);
                     }
                     xLabel += GridXAxisStep;
                 }
             } else
             {
                 // draw the vertical grid lines
-                float xStepSize = ((_width - 2 * GraphXOffset) / (GraphMaxX - GraphMinX)) * GridXAxisStep;
+                float xStepSize = ((w_grid - 2 * GraphXOffset) / (GraphMaxX - GraphMinX)) * GridXAxisStep;
                 float xLabel = GraphMinX;
-                for (float xLine = GraphXOffset; xLine <= _width - GraphXOffset + 1; xLine += xStepSize)
+                for (float xLine = GraphXOffset; xLine <= w_grid - GraphXOffset + 1; xLine += xStepSize)
                 {
-                    _canvasGrid.DrawLine(xLine, _height - GraphYOffset, xLine, 0 + GraphYOffset, GridLinePaint);
-                    _canvasGrid.DrawText(xLabel.ToString(), xLine + 8, _height - GraphYOffset + 18, GridAxisLabelsPaint);
+                    _canvasGrid.DrawLine(xLine, h_grid - GraphYOffset, xLine, 0 + GraphYOffset, GridLinePaint);
+                    _canvasGrid.DrawText(xLabel.ToString(), xLine + 8, h_grid - GraphYOffset + 18, GridAxisLabelsPaint);
                     xLabel += GridXAxisStep;
                 }
             }
             ClearQueues();
         }
+
+      
     }
 }
 

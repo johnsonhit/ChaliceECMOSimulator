@@ -14,6 +14,7 @@
         <skia:SKXamlCanvas x:Name="myGraphCanvasGrid" PaintSurface="MyGraphCanvasGrid_PaintSurface">
     
         </skia:SKXamlCanvas>
-        <skia:SKXamlCanvas x:Name="myGraphCanvas" PaintSurface="MyGraphCanvas_PaintSurface"></skia:SKXamlCanvas>
-    </Grid>
+        <skia:SKXamlCanvas  x:Name="myGraphCanvas" PaintSurface="MyGraphCanvas_PaintSurface"/>
+        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Top" Text="{x:Bind Title, Mode=OneWay}"></TextBlock>
+        </Grid>
 </UserControl>

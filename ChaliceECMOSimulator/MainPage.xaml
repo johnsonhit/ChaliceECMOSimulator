@@ -21,7 +21,7 @@
             <RowDefinition Height="2*"/>
         </Grid.RowDefinitions>
 
-        <graph:ParameterGraph Grid.Column="0" Grid.Row="1"></graph:ParameterGraph>
+        <graph:ParameterGraph x:Name="graph1" Grid.Column="0" Grid.Row="1"></graph:ParameterGraph>
         <graph:ParameterGraph Grid.Column="2" Grid.Row="1"></graph:ParameterGraph>
         
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Bottom" Orientation="Horizontal" Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="2">
@@ -36,6 +36,7 @@
             <local:ParameterController Margin="5,0,0,0" ></local:ParameterController>
             <local:ParameterController Margin="5,0,0,0" ></local:ParameterController>
         </StackPanel>
-        
+        <Button Content="Button" HorizontalAlignment="Left" Margin="82,97.555,0,0" Grid.Row="2" VerticalAlignment="Top" Click="Button_Click_1"/>
+
     </Grid>
 </Page>
